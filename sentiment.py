@@ -25,7 +25,8 @@ def fetch_reddit_data(stock_ticker, cache_path):
         comments = []
         
         for submission in subreddit.search(stock_ticker, limit=100):
-            for comment in submission.comments:
+            submission.comments.replace_more(limit=0)  # Ensure all comments are loaded without "more" links
+            for comment in submission.comments.list():
                 if isinstance(comment, praw.models.Comment):
                     date = datetime.fromtimestamp(comment.created_utc)
                     comments.append({'text': comment.body, 'date': date})
@@ -51,7 +52,7 @@ def fetch_news_data(stock_ticker, api_key, cache_path):
                 title = article['title'] or ""
                 description = article['description'] or ""
                 text = title + " " + description
-                date = article.get('publishedAt')
+                date = article.get('publishedAt', datetime.now().isoformat())  # Default to current time if no date
                 news_data.append({'text': text, 'date': date})
         
         with open(cache_path, 'wb') as f:
@@ -67,7 +68,7 @@ def combine_data(stock_ticker, news_api_key):
     data = []
     for item in all_data:
         text = item['text']
-        date = item.get('date')
+        date = pd.to_datetime(item['date']).tz_localize(None)  # Convert and standardize date
         sentiment = TextBlob(text).sentiment.polarity
         data.append({'Text': text, 'Sentiment': sentiment, 'Date': date})
     
@@ -81,4 +82,7 @@ stock_ticker = 'NVDA'
 combined_data = combine_data(stock_ticker, news_api_key)
 
 print(combined_data)
+
+def get_sentiment_data(stock_ticker, news_api_key):
+    return combine_data(stock_ticker, news_api_key)
 
