@@ -9,7 +9,7 @@ from sklearn.svm import SVR
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
 # Fetch data
-data = yf.Ticker("TSLA")
+data = yf.Ticker("NVDA")
 hist = data.history(period="max")
 actions = data.actions  # Includes dividends and splits
 
