@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock News</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        header {
+            background-color: #333;
+            color: #fff;
+            padding: 10px 0;
+            text-align: center;
+            position: relative; /* Add this line to enable absolute positioning of the icon */
+        }
+        #back-button {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            padding: 5px;
+            border: 2px solid #fff;
+            border-radius: 5px;
+            background-color: #444;
+            color: #fff; /* Ensure text color is white */
+            cursor: pointer;
+        }
+        #back-button img {
+            width: 30px;
+            height: 30px;
+        }
+        #content {
+            padding: 20px;
+        }
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        li {
+            background-color: #fff;
+            margin-bottom: 10px;
+            padding: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        form {
+            margin-bottom: 20px;
+        }
+        form label {
+            font-weight: bold;
+        }
+        form input[type="text"] {
+            padding: 5px;
+            margin-right: 10px;
+        }
+        form button {
+            padding: 5px 10px;
+            background-color: #333;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+        }
+        form button:hover {
+            background-color: #555;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Stock News</h1>
+        <a id="back-button" href="/">
+            <img src="back-icon.png" alt="Back">
+        </a>
+    </header>
+    <div id="content">
+        <form id="news-form">
+            <label for="news-ticker">Stock Ticker:</label>
+            <input type="text" id="news-ticker" name="news-ticker" required>
+            <button type="submit">Get News</button>
+        </form>
+        <h3>Relevant News and Posts</h3>
+        <ul id="news-list"></ul>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', (event) => {
+            const form = document.getElementById('news-form');
+            form.addEventListener('submit', async (event) => {
+                event.preventDefault(); // Prevent default form submission
+                const ticker = document.getElementById('news-ticker').value;
+                fetchNewsData(ticker);
+            });
+
+            // Fetch initial news data for default ticker
+            fetchNewsData('NVDA');
+        });
+
+        async function fetchNewsData(ticker) {
+            try {
+                const response = await fetch(`/news-data?ticker=${ticker}`);
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                const newsData = await response.json();
+                const newsList = document.getElementById('news-list');
+                newsList.innerHTML = ''; // Clear existing news
+                newsData.forEach(item => {
+                    const listItem = document.createElement('li');
+                    listItem.innerText = `${item.date}: ${item.text}`;
+                    newsList.appendChild(listItem);
+                });
+            } catch (error) {
+                console.error('Fetch error:', error);
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Prediction</title>
+    <script src="https://cdn.jsdelivr.net/npm/moment@2.29.1/moment.min.js"></script> <!-- Include Moment.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> <!-- Include Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-moment@1.0.0"></script> <!-- Include Chart.js adapter for Moment.js -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        header {
+            background-color: #333;
+            color: #fff;
+            padding: 10px 0;
+            text-align: center;
+            position: relative; /* Add this line to enable absolute positioning of the icon */
+        }
+        #news-button {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 5px;
+            border: 2px solid #fff;
+            border-radius: 5px;
+            background-color: #444;
+            cursor: pointer;
+            color: #fff; /* Ensure text color is white */
+        }
+        #news-button img {
+            width: 30px;
+            height: 30px;
+        }
+        #container {
+            display: flex;
+            flex-wrap: wrap;
+            padding: 20px;
+        }
+        #sidebar {
+            width: 200px;
+            padding: 20px;
+            background-color: #fff;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            margin-right: 20px;
+        }
+        #content {
+            flex: 1;
+            padding: 20px;
+            background-color: #fff;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .chart-container {
+            width: 100%;
+            height: 400px;
+            margin-bottom: 20px;
+        }
+        #results {
+            font-size: 1.2em;
+            margin-bottom: 20px;
+        }
+        form {
+            margin-bottom: 20px;
+        }
+        form label {
+            font-weight: bold;
+        }
+        form input[type="text"] {
+            padding: 5px;
+            margin-right: 10px;
+        }
+        form button {
+            padding: 5px 10px;
+            background-color: #333;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+        }
+        form button:hover {
+            background-color: #555;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Stock Prediction</h1>
+        <a id="news-button" href="/news">
+            <img src="{{ url_for('static', filename='news-icon.png') }}" alt="News">
+        </a>
+        <a id="market-overview-button" href="/market-overview" class="btn btn-primary" style="position: absolute; top: 50px; right: 10px; padding: 5px; border: 2px solid #fff; border-radius: 5px; background-color: #444; cursor: pointer; color: #fff;">
+            Market Overview
+        </a>
+    </header>
+    <div id="container">
+        <div id="sidebar">
+            <form id="prediction-form">
+                <label for="ticker">Stock Ticker:</label>
+                <input type="text" id="ticker" name="ticker" required>
+                <button type="submit">Predict</button>
+            </form>
+            <div id="fetching-message" style="display: none;">Currently fetching...</div>
+            <h3>Toggle Graphs</h3>
+            <label><input type="checkbox" id="historical-data-toggle" checked> Historical Data</label><br>
+            <label><input type="checkbox" id="combined-data-toggle" checked> Combined Data</label><br>
+        </div>
+        <div id="content">
+            <div id="results"></div>
+            <div id="insights" style="margin-bottom: 20px;">
+                <h3>Insights</h3>
+                <p id="insight-text">Loading insights...</p>
+            </div>
+            <div class="chart-container" id="historical-data-chart-container">
+                <canvas id="historical-data-chart"></canvas>
+            </div>
+            <div class="chart-container" id="combined-data-chart-container">
+                <canvas id="combined-data-chart"></canvas>
+            </div>
+        </div>
+    </div>
+    <script>
+        let historicalDataChart, combinedDataChart;
+        const MAX_DATA_POINTS = 100; // Limit to the most recent 100 data points
+
+        document.addEventListener('DOMContentLoaded', (event) => {
+            console.log('DOM fully loaded and parsed'); // Debugging log
+
+            const form = document.getElementById('prediction-form');
+            form.addEventListener('submit', async (event) => {
+                event.preventDefault(); // Prevent default form submission
+                console.log('Form submitted'); // Debugging log
+
+                const ticker = document.getElementById('ticker').value;
+                console.log('Ticker:', ticker); // Debugging log
+
+                document.getElementById('fetching-message').style.display = 'block'; // Show fetching message
+
+                try {
+                    const response = await fetch(`/predict?ticker=${ticker}`);
+                    console.log('Response status:', response.status); // Debugging log
+
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error(`Network response was not ok: ${errorText}`);
+                    }
+
+                    const responseBody = await response.json();
+                    console.log('Response body:', responseBody); // Debugging log
+
+                    // Parse JSON strings back into objects
+                    const historicalData = JSON.parse(responseBody.historical_data);
+                    const combinedData = JSON.parse(responseBody.combined_data);
+
+                    // Debugging logs to verify date values
+                    console.log('Historical Data Dates:', historicalData.index);
+                    console.log('Combined Data Dates:', combinedData.index);
+
+                    // Display prediction
+                    document.getElementById('results').innerText = `Prediction: ${responseBody.prediction}\nRisk Level: ${responseBody.risk_level}`;
+
+                    // Display insights
+                    const insights = generateInsights(historicalData, combinedData);
+                    document.getElementById('insight-text').innerText = insights;
+
+                    // Destroy existing charts if they exist
+                    if (historicalDataChart) historicalDataChart.destroy();
+                    if (combinedDataChart) combinedDataChart.destroy();
+
+                    // Render charts
+                    historicalDataChart = renderHistoricalDataChart(historicalData);
+                    combinedDataChart = renderCombinedDataChart(combinedData);
+
+                } catch (error) {
+                    console.error('Fetch error:', error); // Debugging log
+                    document.getElementById('results').innerText = `Error fetching prediction data: ${error.message}`;
+                } finally {
+                    document.getElementById('fetching-message').style.display = 'none'; // Hide fetching message
+                }
+            });
+
+            // Toggle chart visibility
+            document.getElementById('historical-data-toggle').addEventListener('change', (event) => {
+                document.getElementById('historical-data-chart-container').style.display = event.target.checked ? 'block' : 'none';
+            });
+            document.getElementById('combined-data-toggle').addEventListener('change', (event) => {
+                document.getElementById('combined-data-chart-container').style.display = event.target.checked ? 'block' : 'none';
+            });
+        });
+
+        function generateInsights(historicalData, combinedData) {
+            // Generate some basic insights
+            const latestClose = historicalData[historicalData.length - 1].Close;
+            const latestSentiment = combinedData[combinedData.length - 1].Sentiment;
+            const avgSentiment = combinedData.reduce((sum, item) => sum + item.Sentiment, 0) / combinedData.length;
+
+            return `Latest Close Price: $${latestClose.toFixed(2)}\n` +
+                   `Latest Sentiment Score: ${latestSentiment.toFixed(2)}\n` +
+                   `Average Sentiment Score: ${avgSentiment.toFixed(2)}`;
+        }
+
+        function displayNewsAndPosts(newsData) {
+            const newsList = document.getElementById('news-list');
+            newsList.innerHTML = ''; // Clear existing news
+
+            newsData.forEach(item => {
+                const listItem = document.createElement('li');
+                listItem.innerText = `${item.date}: ${item.text}`;
+                newsList.appendChild(listItem);
+            });
+        }
+
+        function renderHistoricalDataChart(data) {
+            const ctx = document.getElementById('historical-data-chart').getContext('2d');
+            const recentData = data.slice(-MAX_DATA_POINTS); // Get the most recent data points
+            const recentLabels = recentData.map(item => new Date(item.Date));
+            const recentValues = recentData.map(item => item.Close);
+
+            return new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: recentLabels, // Use recent labels
+                    datasets: [{
+                        label: 'Historical Data',
+                        data: recentValues, // Use recent values
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'month', // Change to display months and years
+                                displayFormats: {
+                                    month: 'MMM YYYY' // Format x-axis to show month and year
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.dataset.label + ': ' + context.raw; // Only show the value
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderCombinedDataChart(data) {
+            const ctx = document.getElementById('combined-data-chart').getContext('2d');
+            const recentData = data.slice(-MAX_DATA_POINTS); // Get the most recent data points
+            const recentLabels = recentData.map(item => new Date(item.Date));
+            const recentValues = recentData.map(item => item.Sentiment);
+
+            return new Chart(ctx, {
+                type: 'scatter', // Change to scatter plot to display points without connecting lines
+                data: {
+                    labels: recentLabels, // Use recent labels
+                    datasets: [{
+                        label: 'Sentiment',
+                        data: recentValues, // Use recent values
+                        borderColor: 'rgba(153, 102, 255, 1)',
+                        borderWidth: 1,
+                        showLine: false // Ensure no lines are drawn between points
+                    }]
+                },
+                options: {
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'month', // Change to display months and years
+                                displayFormats: {
+                                    month: 'MMM YYYY' // Format x-axis to show month and year
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.dataset.label + ': ' + context.raw; // Only show the value
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>

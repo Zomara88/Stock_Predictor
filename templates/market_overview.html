@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Market Overview</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        header {
+            background-color: #333;
+            color: #fff;
+            padding: 10px 0;
+            text-align: center;
+        }
+        .dashboard {
+            display: flex;
+            flex-wrap: wrap;
+            padding: 20px;
+        }
+        .dashboard-section {
+            flex: 1;
+            padding: 20px;
+            margin: 10px;
+            background-color: #fff;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .dashboard-section h2 {
+            margin-top: 0;
+        }
+        .chart-container {
+            width: 100%;
+            height: 400px;
+            margin-bottom: 20px;
+        }
+        .ticker-input {
+            width: 100px;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</head>
+<body>
+    <header>
+        <h1>Market Overview</h1>
+    </header>
+    <div class="dashboard">
+        <div class="dashboard-section" id="trending-stocks">
+            <h2>Trending Stocks</h2>
+            <div class="chart-container">
+                <canvas id="trending-stocks-chart"></canvas>
+            </div>
+        </div>
+        <div class="dashboard-section">
+            <h2>Sort By</h2>
+            <form id="sort-form">
+                <label for="sort-by">Sort By:</label>
+                <select id="sort-by" name="sort-by" required>
+                    <option value="market_cap">Market Cap</option>
+                    <option value="pe_ratio">P/E Ratio</option>
+                    <option value="latest_close">Price</option>
+                </select>
+                <label for="order">Order:</label>
+                <select id="order" name="order" required>
+                    <option value="asc">Ascending</option>
+                    <option value="desc">Descending</option>
+                </select>
+                <button type="submit">Sort</button>
+            </form>
+            <div id="sorted-companies-result" style="margin-top: 20px;">
+                <!-- Sorted companies results will be displayed here -->
+            </div>
+        </div>
+        <div class="dashboard-section">
+            <h2>Sector Comparison</h2>
+            <form id="sector-comparison-form">
+                <label for="sector-ticker-1">Stock Ticker 1:</label>
+                <input type="text" id="sector-ticker-1" name="sector-ticker-1" class="ticker-input" required>
+                <label for="sector-ticker-2">Stock Ticker 2:</label>
+                <input type="text" id="sector-ticker-2" name="sector-ticker-2" class="ticker-input" required>
+                <button type="submit">Compare</button>
+            </form>
+            <div id="sector-comparison-result" style="margin-top: 20px;">
+                <!-- Sector comparison results will be displayed here -->
+            </div>
+        </div>
+    </div>
+    <div style="text-align: center; margin-top: 20px;">
+        <a href="/" class="btn btn-primary" style="padding: 10px 20px; background-color: #333; color: #fff; text-decoration: none; border-radius: 5px;">Back</a>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', async function() {
+            try {
+                const response = await fetch('/trending-stocks-data');
+                if (!response.ok) {
+                    throw new Error('Failed to fetch trending stocks data');
+                }
+                const data = await response.json();
+                console.log('Trending stocks data:', data); // Debugging log
+                renderTrendingStocksChart(data);
+            } catch (error) {
+                console.error('Error fetching trending stocks data:', error);
+            }
+        });
+
+        function renderTrendingStocksChart(data) {
+            const ctx = document.getElementById('trending-stocks-chart').getContext('2d');
+            const chartData = {
+                labels: data.dates.map(date => new Date(date)), // Convert date strings to Date objects
+                datasets: data.companies.map((company, index) => ({
+                    label: company.name,
+                    data: company.prices,
+                    borderColor: ['rgba(75, 192, 192, 1)', 'rgba(153, 102, 255, 1)', 'rgba(255, 159, 64, 1)'][index % 3], // Cycle through colors
+                    borderWidth: 1
+                }))
+            };
+
+            new Chart(ctx, {
+                type: 'line',
+                data: chartData,
+                options: {
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'day',
+                                displayFormats: {
+                                    day: 'MMM D'
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.dataset.label + ': ' + context.raw.toFixed(2); // Format tooltip values
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        document.getElementById('sort-form').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const sortBy = document.getElementById('sort-by').value;
+            const order = document.getElementById('order').value;
+
+            try {
+                const response = await fetch(`/sorted-companies?sort_by=${sortBy}&order=${order}`);
+
+                if (!response.ok) {
+                    throw new Error('Failed to fetch sorted companies data');
+                }
+
+                const data = await response.json();
+
+                const resultDiv = document.getElementById('sorted-companies-result');
+                resultDiv.innerHTML = `
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <tr>
+                            <th style="border: 1px solid #ddd; padding: 8px;">Company</th>
+                            <th style="border: 1px solid #ddd; padding: 8px;">${sortBy.replace('_', ' ').toUpperCase()}</th>
+                        </tr>
+                        ${data.map(company => `
+                        <tr>
+                            <td style="border: 1px solid #ddd; padding: 8px;">${company.name}</td>
+                            <td style="border: 1px solid #ddd; padding: 8px;">${company[sortBy] ? company[sortBy].toFixed(2) : 'N/A'}</td>
+                        </tr>`).join('')}
+                    </table>
+                `;
+            } catch (error) {
+                console.error('Error fetching sorted companies data:', error);
+            }
+        });
+
+        document.getElementById('sector-comparison-form').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const ticker1 = document.getElementById('sector-ticker-1').value;
+            const ticker2 = document.getElementById('sector-ticker-2').value;
+
+            try {
+                const response1 = await fetch(`/sector-data?ticker=${ticker1}`);
+                const response2 = await fetch(`/sector-data?ticker=${ticker2}`);
+
+                if (!response1.ok || !response2.ok) {
+                    throw new Error('Failed to fetch sector data');
+                }
+
+                const data1 = await response1.json();
+                const data2 = await response2.json();
+
+                const resultDiv = document.getElementById('sector-comparison-result');
+                resultDiv.innerHTML = `
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <tr>
+                            <th style="border: 1px solid #ddd; padding: 8px;">Metric</th>
+                            <th style="border: 1px solid #ddd; padding: 8px;">${ticker1}</th>
+                            <th style="border: 1px solid #ddd; padding: 8px;">${ticker2}</th>
+                        </tr>
+                        <tr>
+                            <td style="border: 1px solid #ddd; padding: 8px;">Market Cap</td>
+                            <td style="border: 1px solid #ddd; padding: 8px;">${data1.market_cap}</td>
+                            <td style="border: 1px solid #ddd; padding: 8px;">${data2.market_cap}</td>
+                        </tr>
+                        <tr>
+                            <td style="border: 1px solid #ddd; padding: 8px;">Sector</td>
+                            <td style="border: 1px solid #ddd; padding: 8px;">${data1.sector}</td>
+                            <td style="border: 1px solid #ddd; padding: 8px;">${data2.sector}</td>
+                        </tr>
+                        <tr>
+                            <td style="border: 1px solid #ddd; padding: 8px;">Latest Close Price</td>
+                            <td style="border: 1px solid #ddd; padding: 8px;">${data1.latest_close.toFixed(2)}</td>
+                            <td style="border: 1px solid #ddd; padding: 8px;">${data2.latest_close.toFixed(2)}</td>
+                        </tr>
+                        <tr>
+                            <td style="border: 1px solid #ddd; padding: 8px;">P/E Ratio</td>
+                            <td style="border: 1px solid #ddd; padding: 8px;">${data1.pe_ratio.toFixed(2)}</td>
+                            <td style="border: 1px solid #ddd; padding: 8px;">${data2.pe_ratio.toFixed(2)}</td>
+                        </tr>
+                        <tr>
+                            <td style="border: 1px solid #ddd; padding: 8px;">Analyst Rating</td>
+                            <td style="border: 1px solid #ddd; padding: 8px;">${data1.analyst_rating}</td>
+                            <td style="border: 1px solid #ddd; padding: 8px;">${data2.analyst_rating}</td>
+                        </tr>
+                    </table>
+                `;
+            } catch (error) {
+                console.error('Error fetching sector comparison data:', error);
+            }
+        });
+    </script>
+</body>
+</html>
