@@ -28,6 +28,9 @@ app.secret_key = os.getenv('SECRET_KEY', 'supersecretkey')
 
 # Initialize Firebase Admin SDK
 firebase_cert_path = os.getenv('FIREBASE_CERT_PATH')
+if not os.path.exists(firebase_cert_path):
+    print(f"Error: Firebase certificate file not found: {firebase_cert_path}")
+    exit(1)
 cred = credentials.Certificate(firebase_cert_path)
 firebase_admin.initialize_app(cred)
 

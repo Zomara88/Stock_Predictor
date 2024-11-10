@@ -1,0 +1,1 @@
+To run the app, you need a firebase-adminsdk-json-file generated with the Firebase console. Save the json file to this folder. 
