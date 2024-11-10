@@ -50,12 +50,6 @@
         <h1>Market Overview</h1>
     </header>
     <div class="dashboard">
-        <div class="dashboard-section" id="trending-stocks">
-            <h2>Trending Stocks</h2>
-            <div class="chart-container">
-                <canvas id="trending-stocks-chart"></canvas>
-            </div>
-        </div>
         <div class="dashboard-section">
             <h2>Sort By</h2>
             <form id="sort-form">
@@ -91,63 +85,10 @@
         </div>
     </div>
     <div style="text-align: center; margin-top: 20px;">
-        <a href="/" class="btn btn-primary" style="padding: 10px 20px; background-color: #333; color: #fff; text-decoration: none; border-radius: 5px;">Back</a>
+        <a href="/index" class="btn btn-primary" style="padding: 10px 20px; background-color: #333; color: #fff; text-decoration: none; border-radius: 5px;">Back</a>
+        <button onclick="window.location.href='/logout'">Log Out</button>
     </div>
     <script>
-        document.addEventListener('DOMContentLoaded', async function() {
-            try {
-                const response = await fetch('/trending-stocks-data');
-                if (!response.ok) {
-                    throw new Error('Failed to fetch trending stocks data');
-                }
-                const data = await response.json();
-                console.log('Trending stocks data:', data); // Debugging log
-                renderTrendingStocksChart(data);
-            } catch (error) {
-                console.error('Error fetching trending stocks data:', error);
-            }
-        });
-
-        function renderTrendingStocksChart(data) {
-            const ctx = document.getElementById('trending-stocks-chart').getContext('2d');
-            const chartData = {
-                labels: data.dates.map(date => new Date(date)), // Convert date strings to Date objects
-                datasets: data.companies.map((company, index) => ({
-                    label: company.name,
-                    data: company.prices,
-                    borderColor: ['rgba(75, 192, 192, 1)', 'rgba(153, 102, 255, 1)', 'rgba(255, 159, 64, 1)'][index % 3], // Cycle through colors
-                    borderWidth: 1
-                }))
-            };
-
-            new Chart(ctx, {
-                type: 'line',
-                data: chartData,
-                options: {
-                    scales: {
-                        x: {
-                            type: 'time',
-                            time: {
-                                unit: 'day',
-                                displayFormats: {
-                                    day: 'MMM D'
-                                }
-                            }
-                        }
-                    },
-                    plugins: {
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    return context.dataset.label + ': ' + context.raw.toFixed(2); // Format tooltip values
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-        }
-
         document.getElementById('sort-form').addEventListener('submit', async function(event) {
             event.preventDefault();
             const sortBy = document.getElementById('sort-by').value;

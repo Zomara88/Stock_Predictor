@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, render_template, send_from_directory
+from flask import Flask, jsonify, request, render_template, send_from_directory, redirect, url_for, session
 from flask_cors import CORS
 import yfinance as yf
 import praw
@@ -11,12 +11,99 @@ from datetime import datetime
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
 import traceback
+import hashlib
+import firebase_admin
+from firebase_admin import credentials, firestore
+import re
 
 # Load environment variables from .env file
 load_dotenv()
 
+# Initialize Flask app and enable CORS
 app = Flask(__name__)
 CORS(app)
+
+# Set secret key for session management
+app.secret_key = os.getenv('SECRET_KEY', 'supersecretkey')
+
+# Initialize Firebase Admin SDK
+cred = credentials.Certificate('C:/Users/bryan/OneDrive/Desktop/HACKFIN/stocksusers-488b4-firebase-adminsdk-srmmy-10a4a1808c.json')
+firebase_admin.initialize_app(cred)
+
+# Initialize Firestore
+db = firestore.client()
+
+@app.route('/register', methods=['POST'])
+def register():
+    """Register a new user."""
+    try:
+        data = request.form
+        username = data.get('username')
+        email = data.get('email')
+        password = data.get('password')
+
+        # Validate input
+        if not username or len(username) < 3 or len(username) > 10:
+            return jsonify({'error': 'Username must be between 3 and 10 characters'}), 400
+        if not email or not re.match(r"[^@]+@[^@]+\.[^@]+", email):
+            return jsonify({'error': 'Invalid email format'}), 400
+        if not password or len(password) < 8 or len(password) > 100:
+            return jsonify({'error': 'Password must be between 8 and 100 characters'}), 400
+
+        # Hash the password before storing it
+        hashed_password = hashlib.sha256(password.encode()).hexdigest()
+
+        # Store user data in Firestore
+        users_ref = db.collection('users')
+        user_doc = users_ref.document(username)
+        user_doc.set({
+            'username': username,
+            'email': email,
+            'password': hashed_password
+        })
+
+        # Set session user_id
+        session['user_id'] = username
+        return redirect(url_for('login_page'))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/login', methods=['POST'])
+def login():
+    """Log in an existing user."""
+    try:
+        data = request.form
+        username = data.get('username')
+        password = data.get('password')
+
+        # Validate input
+        if not username or not password:
+            return jsonify({'error': 'Username and password are required'}), 400
+
+        # Hash the password to compare with stored password
+        hashed_password = hashlib.sha256(password.encode()).hexdigest()
+
+        # Check if user exists in Firestore
+        users_ref = db.collection('users')
+        user_doc = users_ref.document(username).get()
+
+        if user_doc.exists:
+            user_data = user_doc.to_dict()
+            if user_data['password'] == hashed_password:
+                session['user_id'] = username
+                return render_template('index.html')
+            else:
+                return jsonify({'message': 'Invalid credentials!'}), 401
+        else:
+            return jsonify({'message': 'User not found!'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/logout', methods=['GET', 'POST'])
+def logout():
+    """Log out the current user."""
+    session.pop('user_id', None)
+    return redirect(url_for('login_page'))
 
 # Initialize PRAW with your Reddit API credentials
 reddit = praw.Reddit(client_id=os.getenv('REDDIT_CLIENT_ID'),
@@ -128,8 +215,8 @@ def determine_risk_level(prediction):
 
 @app.route('/')
 def home():
-    """Render the home page."""
-    return render_template('index.html')
+    """Redirect to the login page."""
+    return redirect(url_for('login_page'))
 
 @app.route('/news')
 def news():
@@ -326,6 +413,43 @@ def sorted_companies():
 def static_files(filename):
     """Serve static files."""
     return send_from_directory(os.path.join(app.root_path, 'static'), filename)
+
+@app.route('/login', methods=['GET'])
+def login_page():
+    """Render the login page."""
+    return render_template('login.html')
+
+@app.route('/register', methods=['GET'])
+def register_page():
+    """Render the registration page."""
+    return render_template('register.html')
+
+@app.route('/index')
+def index():
+    """Render the index page."""
+    return render_template('index.html')
+
+@app.route('/users', methods=['GET'])
+def get_users():
+    """Fetch all users from Firestore."""
+    try:
+        users_ref = db.collection('users')
+        users = users_ref.stream()
+        users_data = [{'username': user.id, 'email': user.to_dict().get('email')} for user in users]
+        return jsonify(users_data), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/check-db', methods=['GET'])
+def check_db():
+    """Check the database connection."""
+    try:
+        # Perform a simple query to check the database connection
+        users_ref = db.collection('users')
+        users = users_ref.stream()
+        return jsonify({'message': 'Database connection successful', 'result': [user.id for user in users]}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == "__main__":
     app.run(debug=True)

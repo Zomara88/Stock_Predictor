@@ -1,0 +1,24 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Prediction</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="prediction-container">
+        <h2>Stock Prediction for {{ request.args.get('ticker', 'NVDA') }}</h2>
+        <p><strong>Prediction:</strong> {{ response['prediction'] }}</p>
+        <p><strong>Risk Level:</strong> {{ response['risk_level'] }}</p>
+        <h3>Historical Data</h3>
+        <pre>{{ response['historical_data'] }}</pre>
+        <h3>Combined Data</h3>
+        <pre>{{ response['combined_data'] }}</pre>
+        <h3>News Data</h3>
+        <pre>{{ response['news_data'] }}</pre>
+    </div>
+    <script src="{{ url_for('static', filename='scripts.js') }}"></script>
+</body>
+</html>
