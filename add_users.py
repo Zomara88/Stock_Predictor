@@ -1,9 +1,15 @@
-from firebase_admin import credentials, firestore
 import firebase_admin
+from firebase_admin import credentials, firestore
+from dotenv import load_dotenv
+import os
 import hashlib
 
+# Load environment variables from .env file
+load_dotenv()
+
 # Initialize Firebase Admin SDK
-cred = credentials.Certificate('C:/Users/bryan/OneDrive/Desktop/HACKFIN/stocksusers-488b4-firebase-adminsdk-srmmy-10a4a1808c.json')
+firebase_cert_path = os.getenv('FIREBASE_CERT_PATH')
+cred = credentials.Certificate(firebase_cert_path)
 firebase_admin.initialize_app(cred)
 
 # Initialize Firestore

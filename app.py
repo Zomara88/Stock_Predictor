@@ -27,11 +27,13 @@ CORS(app)
 app.secret_key = os.getenv('SECRET_KEY', 'supersecretkey')
 
 # Initialize Firebase Admin SDK
-cred = credentials.Certificate('C:/Users/bryan/OneDrive/Desktop/HACKFIN/stocksusers-488b4-firebase-adminsdk-srmmy-10a4a1808c.json')
+firebase_cert_path = os.getenv('FIREBASE_CERT_PATH')
+cred = credentials.Certificate(firebase_cert_path)
 firebase_admin.initialize_app(cred)
 
 # Initialize Firestore
 db = firestore.client()
+
 
 @app.route('/register', methods=['POST'])
 def register():
